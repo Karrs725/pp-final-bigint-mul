@@ -1,36 +1,35 @@
-# Compiler and flags
+# Makefile for Karatsuba multiplication implementation
 CXX = g++
 CXXFLAGS = -std=c++23 -O3 -march=native -g
 LDFLAGS = 
 
 # Directories
 UTILS_DIR = ../utils
-NATIVE_DIR = ../native
-BUILD_DIR = .
+BUILD_DIR = ../build
 OBJ_DIR = $(BUILD_DIR)/obj
 BIN_DIR = $(BUILD_DIR)/bin
+SRC_DIR = ./src
+INCLUDE_DIR = ./include
 
 # Source files
 UTILS_SRC = $(wildcard $(UTILS_DIR)/src/*.cpp)
-NATIVE_SRC = $(wildcard $(NATIVE_DIR)/src/*.cpp)
-# NATIVE_SRC = $(NATIVE_DIR)/native.cpp
+KARATSUBA_SRC = $(wildcard $(SRC_DIR)/*.cpp)
 
 # Object files
 UTILS_OBJ = $(patsubst $(UTILS_DIR)/src/%.cpp,$(OBJ_DIR)/%.o,$(UTILS_SRC))
-NATIVE_OBJ = $(patsubst $(NATIVE_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(NATIVE_SRC))
+KARATSUBA_OBJ = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(KARATSUBA_SRC))
 
 # All object files
-ALL_OBJ = $(UTILS_OBJ) $(NATIVE_OBJ)
+ALL_OBJ = $(UTILS_OBJ) $(KARATSUBA_OBJ)
 
 # Output binary
-BINARY = $(BIN_DIR)/native
+BINARY = $(BIN_DIR)/karatsuba
 
 # Include paths
-INCLUDES = -I$(UTILS_DIR)/include
-NATIVE_INCLUDES = -I$(NATIVE_DIR)/include
+INCLUDES = -I$(UTILS_DIR)/include -I$(INCLUDE_DIR)
 
 # Phony targets
-.PHONY: all utils native clean help
+.PHONY: all utils karatsuba clean help
 
 # Default target
 all: $(BINARY)
@@ -40,11 +39,12 @@ $(BINARY): $(ALL_OBJ) | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $(ALL_OBJ) -o $@ $(LDFLAGS)
 	@echo "Built: $@"
 
-# Build object files from utils and native sources
+# Build object files from utils sources
 $(OBJ_DIR)/%.o: $(UTILS_DIR)/src/%.cpp | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(NATIVE_DIR)/%.cpp | $(OBJ_DIR)
+# Build object files from karatsuba sources
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 # Create directories if they don't exist
@@ -56,12 +56,10 @@ $(BIN_DIR):
 
 # Utility targets
 utils: $(UTILS_OBJ)
-	make -C $(UTILS_DIR)
 	@echo "Built utils objects"
 
-native: $(NATIVE_OBJ)
-	make -C $(NATIVE_DIR)
-	@echo "Built native objects"
+karatsuba: $(KARATSUBA_OBJ)
+	@echo "Built karatsuba objects"
 
 # Clean build artifacts
 clean:
@@ -71,8 +69,8 @@ clean:
 # Help target
 help:
 	@echo "Available targets:"
-	@echo "  all     - Build the project (default)"
-	@echo "  utils   - Build utils library"
-	@echo "  native  - Build native executable"
-	@echo "  clean   - Remove build artifacts"
-	@echo "  help    - Show this help message"
+	@echo "  all       - Build the project (default)"
+	@echo "  utils     - Build utils library"
+	@echo "  karatsuba - Build karatsuba executable"
+	@echo "  clean     - Remove build artifacts"
+	@echo "  help      - Show this help message"

@@ -2,4 +2,6 @@ build/bin
 build/obj
 *.a
 *.o
+*.in
+*.ans
 .vscode/
