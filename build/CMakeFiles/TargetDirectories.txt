@@ -1,3 +1,0 @@
-/home/wychen/Repositories/parallel-large-integer-multiplication/build/CMakeFiles/benchmark.dir
-/home/wychen/Repositories/parallel-large-integer-multiplication/build/CMakeFiles/edit_cache.dir
-/home/wychen/Repositories/parallel-large-integer-multiplication/build/CMakeFiles/rebuild_cache.dir

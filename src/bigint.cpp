@@ -1,15 +1,28 @@
 #include "bigint.hpp"
 
 std::ostream &operator<<(std::ostream &os, const BigInt &big) {
+    if (big.empty()) {
+        os << "0";
+        return os;
+    }
+
     for (auto it = big.crbegin(); it != big.crend(); ++it) {
         os << *it;
     }
+
     return os;
 }
 
-BigInt::BigInt(const std::string &str) : BigInt(str.size()) {
-    std::copy(str.crbegin(), str.crend(), this->begin());
+BigInt::BigInt(std::string_view str_v) {
+    auto valid = str_v 
+        | std::views::drop_while( [](const char &c) { return c == '0'; } ) 
+        | std::views::reverse;
+
+    this->resize(valid.size());
+    std::copy(valid.begin(), valid.end(), this->begin());
+
     for (i32 &val : (*this)) {
+        assert(std::isdigit(val));
         val -= static_cast<i32>('0');
     }
 }

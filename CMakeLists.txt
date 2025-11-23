@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.18)
 project(BigIntMultiply CXX)
 
 # C++ standard
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Build type default
@@ -19,7 +19,9 @@ check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_ARCHITECTURES 75 80 86)  # Set appropriate GPU architectures
     file(GLOB CUDA_SOURCES src/gpu/*.cu)
+    message(STATUS "CUDA enabled with architectures: ${CMAKE_CUDA_ARCHITECTURES}")
 endif()
 
 # Collect all source files

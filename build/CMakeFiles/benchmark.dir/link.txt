@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/benchmark.dir/link.d CMakeFiles/benchmark.dir/benchmarks/bench_main.cpp.o CMakeFiles/benchmark.dir/src/bigint.cpp.o CMakeFiles/benchmark.dir/src/registry.cpp.o CMakeFiles/benchmark.dir/src/cpu/schoolbook.cpp.o -o bin/benchmark

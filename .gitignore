@@ -1,5 +1,5 @@
-build/bin
-build/obj
+build/
+build/
 *.a
 *.o
 *.in

@@ -14,6 +14,12 @@
 #include <cstdlib>
 #include <random>
 #include <assert.h>
+#include <string_view>
+#include <ranges>
+
+// CUDA headers
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 
 using i32 = __int32_t;
 using u32 = __uint32_t;
