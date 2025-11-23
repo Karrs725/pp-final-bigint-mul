@@ -21,6 +21,8 @@ if(CMAKE_CUDA_COMPILER)
     set(CMAKE_CUDA_STANDARD 17)
     set(CMAKE_CUDA_ARCHITECTURES 75 80 86)  # Set appropriate GPU architectures
     file(GLOB CUDA_SOURCES src/gpu/*.cu)
+    add_definitions(-DUSE_CUDA)    
+    include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
     message(STATUS "CUDA enabled with architectures: ${CMAKE_CUDA_ARCHITECTURES}")
 endif()
 
