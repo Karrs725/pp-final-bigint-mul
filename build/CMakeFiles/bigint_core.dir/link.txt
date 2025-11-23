@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbigint_core.a CMakeFiles/bigint_core.dir/src/bigint.cpp.o CMakeFiles/bigint_core.dir/src/registry.cpp.o CMakeFiles/bigint_core.dir/src/cpu/schoolbook.cpp.o
+/usr/bin/ranlib libbigint_core.a

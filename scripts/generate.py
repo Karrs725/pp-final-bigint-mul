@@ -10,5 +10,5 @@ for d in range(3, 7):
         f = open(f"../benchmarks/random/nd{d}_{i+1}.in", "w")
         a = randint(low, hei)
         b = randint(low, hei)
-        f.write(f"{a}\n{b}")
+        f.write(f"{a}\n{b}\n{a*b}")
         f.close()

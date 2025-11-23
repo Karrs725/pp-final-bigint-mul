@@ -16,7 +16,7 @@ python3 ans.py
 for ((d=3;d<=6;d=d+1)) do
     for ((i=1;i<=5;i=i+1)) do
         echo "Testing nd${d}_${i}..."
-        time ./$1 ../benchmarks/random/nd${d}_${i}.in > output
+        time ./$1 ../benchmarks/random/nd${d}_${i}.in $2 > output
         diff output ../benchmarks/random/nd${d}_${i}.ans || ((echo "xxx") && exit 1)
         echo "[PASSED]"
         echo ""
