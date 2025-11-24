@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <string_view>
 #include <ranges>
+#include <unordered_map>
 
 // CUDA headers
 #include <cuda_runtime.h>

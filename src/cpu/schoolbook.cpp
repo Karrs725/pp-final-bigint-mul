@@ -6,7 +6,7 @@ class SchoolbookMul : public BigMulImpl {
 public:
     std::string name() const override { return "cpu-schoolbook"; }
 
-    BigInt multiply(const BigInt &lhs, const BigInt &rhs) override {
+    BigInt multiply(const BigInt &lhs, const BigInt &rhs) const override {
         u32 len1 = lhs.size();
         u32 len2 = rhs.size();
         u32 result_len = len1 + len2 - 1;

@@ -58,7 +58,7 @@ __global__ void carry_propagate_64bit(i64* values, i32* result, u32 len) {
 
 class SchoolbookMul_GPU_Optimized : public BigMulImpl {
 private:
-    void checkCuda(cudaError_t result, const char* msg) {
+    void checkCuda(cudaError_t result, const char* msg) const {
         if (result != cudaSuccess) {
             std::cerr << "CUDA Error: " << msg << " - " 
                       << cudaGetErrorString(result) << std::endl;
@@ -68,7 +68,7 @@ private:
 public:
     std::string name() const override { return "gpu-schoolbook-opt"; }
 
-    BigInt multiply(const BigInt &lhs, const BigInt &rhs) override {
+    BigInt multiply(const BigInt &lhs, const BigInt &rhs) const override {
         u32 len1 = lhs.size();
         u32 len2 = rhs.size();
         u32 result_len = len1 + len2;

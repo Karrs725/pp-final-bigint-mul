@@ -1,6 +1,7 @@
 #include "common.hpp"
 #include "bigint.hpp"
 #include "registry.hpp"
+#include "cli.hpp"
 
 class Benchmark {
 private:
@@ -33,13 +34,7 @@ public:
         infile.close();
     }
 
-    bool run_bench(const std::string& impl_name) {
-        auto impl = get_impl(impl_name);
-        if (!impl) {
-            std::cerr << "Implementation not found: " << impl_name << "\n";
-            return false;
-        }
-
+    bool run_bench(const BigMulImpl *impl) {
         auto start = std::chrono::steady_clock::now();
 
         BigInt result = impl->multiply(num1, num2);
@@ -50,7 +45,7 @@ public:
         bool correct = (result == ans);
 
         std::cout << "-------------------------------------------\n";
-        std::cout << "Benchmarking   : " << impl_name << "\n";
+        std::cout << "Benchmarking   : " << impl->name() << "\n";
         std::cout << "Input size     : " << num1.size() << " x " << num2.size() << "\n";
         std::cout << "Time taken     : " << time_ms << " ms\n";
         std::cout << "Result correct : " << (correct ? "YES" : "NO") << "\n";
@@ -61,77 +56,10 @@ public:
 
 const std::string Benchmark::ref_impl_name = "cpu-schoolbook";
 
-struct CLI {
-    std::string impl = "";
-    u32 size = 1000;
-    u32 threads = 1;
-    bool list = false;
-    bool help = false;
-    std::string file = "";
-};
-
-// -----------------------------------------------------------
-// Show usage information
-// -----------------------------------------------------------
-void show_usage(const char* program_name) {
-    std::cout << "Usage: " << program_name << " [OPTIONS]\n\n";
-    std::cout << "Benchmark tool for large integer multiplication algorithms\n\n";
-    std::cout << "OPTIONS:\n";
-    std::cout << "  --help               Show this help message\n";
-    std::cout << "  --list               List all available implementations\n";
-    std::cout << "  --impl <name>        Run specific implementation (default: all)\n";
-    std::cout << "  --threads <n>        Number of threads to use (default: 1)\n";
-    std::cout << "  --size <n>           Size of random numbers to generate (default: 1000)\n";
-    std::cout << "  --file <path>        Read input from file (format: two numbers on separate lines)\n";
-    std::cout << "\n";
-    std::cout << "EXAMPLES:\n";
-    std::cout << "  " << program_name << " --list\n";
-    std::cout << "  " << program_name << " --size 500\n";
-    std::cout << "  " << program_name << " --impl cpu-schoolbook --size 1000\n";
-    std::cout << "  " << program_name << " --file benchmarks/random/nd3_1.in\n";
-    std::cout << "\n";
-}
-
-// -----------------------------------------------------------
-// Simple CLI parser
-// -----------------------------------------------------------
-CLI parse_cli(int argc, char** argv) {
-    CLI cli;
-
-    for (int i = 1; i < argc; i++) {
-        std::string arg = argv[i];
-
-        if (arg == "--help" || arg == "-h") {
-            cli.help = true;
-        }
-        else if (arg == "--impl" && i + 1 < argc) {
-            cli.impl = argv[++i];
-        }
-        else if (arg == "--threads" && i + 1 < argc) {
-            cli.threads = std::stoull(argv[++i]);
-        }
-        else if (arg == "--size" && i + 1 < argc) {
-            cli.size = std::stoull(argv[++i]);
-        }
-        else if (arg == "--file" && i + 1 < argc) {
-            cli.file = argv[++i];
-        }
-        else if (arg == "--list") {
-            cli.list = true;
-        }
-        else {
-            std::cerr << "Unknown argument: " << arg << "\n";
-            std::cerr << "Use --help for usage information\n";
-            exit(1);
-        }
-    }
-    return cli;
-}
-
-// -----------------------------------------------------------
-// Main
-// -----------------------------------------------------------
 int main(int argc, char** argv) {
+
+    using namespace cli;
+
     // Show help if no arguments
     if (argc == 1) {
         show_usage(argv[0]);
@@ -141,13 +69,13 @@ int main(int argc, char** argv) {
     CLI cli = parse_cli(argc, argv);
 
     // Show help
-    if (cli.help) {
+    if (cli.has_option("help")) {
         show_usage(argv[0]);
         return 0;
     }
 
     // List implementations
-    if (cli.list) {
+    if (cli.has_option("list")) {
         std::cout << "Available implementations:\n";
         for (auto& name : list_impls()) {
             std::cout << "  • " << name << "\n";
@@ -156,25 +84,39 @@ int main(int argc, char** argv) {
     }
 
     Benchmark bench;
-    if (!cli.file.empty()) {
-        bench.setup(cli.file);
+    if (cli.has_option("file")) {
+        bench.setup(cli.get_option("file"));
     } else {
-        bench.setup(cli.size);
+        u32 size = 1000; // default size
+        if (cli.has_option("size")) {
+            size = static_cast<u32>(std::stoul(cli.get_option("size")));
+        }
+        bench.setup(size);
     }
 
-    // putenv(const_cast<char*>(("NUM_THREADS=" + std::to_string(cli.threads)).c_str()));
-
     // If no impl is specified, run all
-    if (cli.impl.empty()) {
-        std::cout << "\nRunning all implementations:\n\n";
+    std::vector<BigMulImpl*> impls_to_run;
+    if (cli.has_option("impl")) {
+        const std::string impl_name = cli.get_option("impl");
 
-        for (const auto& name : list_impls()) {
-            bench.run_bench(name);
-        }
+        BigMulImpl* impl = get_impl(impl_name);
+        impl->config(cli);
+        impls_to_run.push_back(impl);
+        bench.run_bench(impl);
     } else {
-        // Run only the one requested
-        std::cout << "\nRunning implementation: " << cli.impl << "\n\n";
-        bench.run_bench(cli.impl);
+        for (const auto& name : list_impls()) {
+            BigMulImpl* impl = get_impl(name);
+            impl->config(cli);
+            impls_to_run.push_back(impl);
+        }
+    }
+
+    for (auto impl : impls_to_run) {
+        bench.run_bench(impl);
+    }
+
+    for (auto impl : impls_to_run) {
+        delete impl;
     }
 
     return 0;

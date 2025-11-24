@@ -3,18 +3,35 @@
 #include "registry.hpp"
 
 class SchoolbookThreadMul : public BigMulImpl {
+private:
+    // configured via CLI; if not set, we'll fall back to hardware_concurrency or env
+    u32 num_threads_ = std::thread::hardware_concurrency() ?
+                        static_cast<u32>(std::thread::hardware_concurrency()) : 4;
+
 public:
     std::string name() const override { return "cpu-schoolbook-thread"; }
 
-    BigInt multiply(const BigInt &lhs, const BigInt &rhs) override {
+    void config(const cli::CLI& cli) override {
+        if (cli.has_option("threads")) {
+            try {
+                auto parsed = std::stoul(cli.get_option("threads"));
+                if (parsed > 0) num_threads_ = static_cast<u32>(parsed);
+            } catch (...) {
+                // ignore invalid value
+            }
+        }
+    }
+
+    BigInt multiply(const BigInt &lhs, const BigInt &rhs) const override {
         u32 len1 = lhs.size();
         u32 len2 = rhs.size();
         u32 result_len = len1 + len2 - 1;
         BigInt result(result_len);
         
-        // u32 num_threads = std::stoi(std::getenv("NUM_THREADS")) * 4;
-        u32 num_threads = 4;
+        // Prefer configured thread count; fall back to environment or default.
+        u32 num_threads = num_threads_;
         std::cerr << "Using " << num_threads << " threads for multiplication.\n";
+
         std::vector<std::thread> threads(num_threads);
         std::vector<BigInt> partial_results(num_threads, BigInt(result_len));
         
@@ -47,8 +64,6 @@ public:
             carry /= 10;
         }
         
-        std::cout << "size = " << result.size() << std::endl;
-        // return lhs;
         return result;
     }
 

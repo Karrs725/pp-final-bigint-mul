@@ -64,7 +64,7 @@ __global__ void apply_carries_kernel(i32* result, i32* carries, u32 len) {
 class SchoolbookMul_GPU : public BigMulImpl {
 private:
     // Check for CUDA errors
-    void checkCuda(cudaError_t result, const char* msg) {
+    void checkCuda(cudaError_t result, const char* msg) const {
         if (result != cudaSuccess) {
             std::cerr << "CUDA Error: " << msg << " - " 
                       << cudaGetErrorString(result) << std::endl;
@@ -74,7 +74,7 @@ private:
 public:
     std::string name() const override { return "gpu-schoolbook"; }
 
-    BigInt multiply(const BigInt &lhs, const BigInt &rhs) override {
+    BigInt multiply(const BigInt &lhs, const BigInt &rhs) const override {
         u32 len1 = lhs.size();
         u32 len2 = rhs.size();
         u32 result_len = len1 + len2;

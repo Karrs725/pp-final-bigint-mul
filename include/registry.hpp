@@ -2,11 +2,14 @@
 
 #include "common.hpp"
 #include "bigint.hpp"
+#include "cli.hpp"
 
 struct BigMulImpl {
     virtual std::string name() const = 0;
 
-    virtual BigInt multiply(const BigInt& lhs, const BigInt& rhs) = 0;
+    virtual void config(const cli::CLI&) {};
+
+    virtual BigInt multiply(const BigInt& lhs, const BigInt& rhs) const = 0;
 
     virtual ~BigMulImpl() {}
 };

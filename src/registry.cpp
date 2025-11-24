@@ -15,7 +15,9 @@ BigMulImpl* get_impl(const std::string& name) {
     if (it != registry.end()) {
         return it->second();
     }
-    return nullptr;
+    std::cerr << "Implementation not found: " << name << "\n";
+    exit(1);
+    // return nullptr;
 }
 
 std::vector<std::string> list_impls() {
