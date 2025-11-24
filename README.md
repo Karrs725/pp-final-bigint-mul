@@ -25,6 +25,7 @@ cmake -B build && cmake --build build -j
 Options:
   --list              List available implementations
   --impl <name>       Run specific implementation
+  --threads <n>       Number of threads to use (default: 1)
   --size <n>          Random number size (default: 1000)
   --file <path>       Read from file
   --help              Show help

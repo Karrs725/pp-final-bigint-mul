@@ -64,6 +64,7 @@ const std::string Benchmark::ref_impl_name = "cpu-schoolbook";
 struct CLI {
     std::string impl = "";
     u32 size = 1000;
+    u32 threads = 1;
     bool list = false;
     bool help = false;
     std::string file = "";
@@ -79,6 +80,7 @@ void show_usage(const char* program_name) {
     std::cout << "  --help               Show this help message\n";
     std::cout << "  --list               List all available implementations\n";
     std::cout << "  --impl <name>        Run specific implementation (default: all)\n";
+    std::cout << "  --threads <n>        Number of threads to use (default: 1)\n";
     std::cout << "  --size <n>           Size of random numbers to generate (default: 1000)\n";
     std::cout << "  --file <path>        Read input from file (format: two numbers on separate lines)\n";
     std::cout << "\n";
@@ -104,6 +106,9 @@ CLI parse_cli(int argc, char** argv) {
         }
         else if (arg == "--impl" && i + 1 < argc) {
             cli.impl = argv[++i];
+        }
+        else if (arg == "--threads" && i + 1 < argc) {
+            cli.threads = std::stoull(argv[++i]);
         }
         else if (arg == "--size" && i + 1 < argc) {
             cli.size = std::stoull(argv[++i]);
@@ -156,6 +161,8 @@ int main(int argc, char** argv) {
     } else {
         bench.setup(cli.size);
     }
+
+    // putenv(const_cast<char*>(("NUM_THREADS=" + std::to_string(cli.threads)).c_str()));
 
     // If no impl is specified, run all
     if (cli.impl.empty()) {
