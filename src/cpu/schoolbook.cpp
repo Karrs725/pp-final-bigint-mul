@@ -4,7 +4,7 @@
 
 class SchoolbookMul : public BigMulImpl {
 public:
-    std::string name() const override { return "cpu-schoolbook"; }
+    std::string name() const override { return "schoolbook-cpu"; }
 
     BigInt multiply(const BigInt &lhs, const BigInt &rhs) override {
         u32 len1 = lhs.size();
@@ -38,6 +38,6 @@ public:
 
 // This object is automatically created when program loads
 static bool _ = [](){
-    register_impl("cpu-schoolbook", [](){ return new SchoolbookMul(); });
+    register_impl("schoolbook-cpu", [](){ return new SchoolbookMul(); });
     return true;
 }();

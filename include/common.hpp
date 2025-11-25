@@ -20,6 +20,7 @@
 #include <complex>
 #include <numbers>
 #include <bit>
+#include <type_traits>
 
 // CUDA headers
 #include <cuda_runtime.h>

@@ -72,7 +72,7 @@ private:
     }
 
 public:
-    std::string name() const override { return "gpu-schoolbook"; }
+    std::string name() const override { return "schoolbook-gpu"; }
 
     BigInt multiply(const BigInt &lhs, const BigInt &rhs) override {
         u32 len1 = lhs.size();
@@ -137,6 +137,6 @@ public:
 
 // Register implementation
 static bool _ = [](){
-    register_impl("gpu-schoolbook", [](){ return new SchoolbookMul_GPU(); });
+    register_impl("schoolbook-gpu", [](){ return new SchoolbookMul_GPU(); });
     return true;
 }();

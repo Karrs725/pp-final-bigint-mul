@@ -80,6 +80,6 @@ public:
 
 // This object is automatically created when program loads
 static bool _ = [](){
-    register_impl("cpu-schoolbook-thread", [](){ return new SchoolbookThreadMul(); });
+    register_impl("schoolbook-cpu-thread", [](){ return new SchoolbookThreadMul(); });
     return true;
 }();

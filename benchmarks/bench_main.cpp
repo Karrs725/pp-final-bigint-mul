@@ -82,7 +82,7 @@ public:
     }
 };
 
-const std::string Benchmark::ref_impl_name = "cpu-schoolbook";
+const std::string Benchmark::ref_impl_name = "schoolbook-cpu";
 
 int main(int argc, char** argv) {
 

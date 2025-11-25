@@ -1,26 +1,28 @@
 #include "bigint.hpp"
 #include "common.hpp"
 #include "registry.hpp"
+#include "modint.hpp"
 
-class FFT_cpu : public BigMulImpl {
+class NTT_cpu : public BigMulImpl {
 public:
-    std::string name() const override { return "fft-cpu"; }
+    std::string name() const override { return "cpu-ntt"; }
 
     BigInt multiply(const BigInt &lhs, const BigInt &rhs) override;
 
 private:
-    using fp = long double;
-    using field = std::complex<fp>;
+    using field = MontgomeryModInt<998244353>;
 
-    const field identity = field(1, 0);
+    static constexpr field one_ = field(1);
+    static constexpr field zero_ = field(0);
+
     std::vector<field> roots, iroots, carry, icarry;
 
     void set_root(u32 n);
-    void fft(u32 n, field *a);
-    void ift(u32 n, field *a);
+    void dft(u32 n, field *a);
+    void idft(u32 n, field *a);
 };
 
-BigInt FFT_cpu::multiply(const BigInt &lhs, const BigInt &rhs) {
+BigInt NTT_cpu::multiply(const BigInt &lhs, const BigInt &rhs) {
     const u32 lhs_len= lhs.size();
     const u32 rhs_len = rhs.size();
 
@@ -30,31 +32,27 @@ BigInt FFT_cpu::multiply(const BigInt &lhs, const BigInt &rhs) {
 
     const u32 result_len = std::max<u32>(4, lhs_len + rhs_len);
 
-    if (result_len >= u32(1E5)) {
-        std::cerr << "Warning: floating-point FFT may lose precision for very large inputs (size >= 1E5).\n";
+    u32 ntt_len = std::bit_ceil(result_len);
+
+    std::vector<field> A(ntt_len, zero_);
+    std::vector<field> B(ntt_len, zero_);
+
+    for (u32 i = 0; i < ntt_len; i++) {
+        if (i < lhs_len) A[i] = field(lhs[i]);
+        if (i < rhs_len) B[i] = field(rhs[i]);
     }
 
-    u32 fft_len = std::bit_ceil(result_len);
-
-    std::vector<field> A(fft_len, field(0, 0));
-    std::vector<field> B(fft_len, field(0, 0));
-
-    for (u32 i = 0; i < fft_len; i++) {
-        if (i < lhs_len) A[i] = field(lhs[i], 0);
-        if (i < rhs_len) B[i] = field(rhs[i], 0);
-    }
-
-    fft(fft_len, A.data());
-    fft(fft_len, B.data());
-    for (u32 i = 0; i < fft_len; i++) {
+    dft(ntt_len, A.data());
+    dft(ntt_len, B.data());
+    for (u32 i = 0; i < ntt_len; i++) {
         A[i] *= B[i];
     }
-    ift(fft_len, A.data());
+    idft(ntt_len, A.data());
 
     BigInt result(result_len);
     i32 carry = 0;
     for (u32 i = 0; i < result_len; i++) {
-        carry += static_cast<i32>(std::round(A[i].real()));
+        carry += A[i].get();
         result[i] = carry % 10;
         carry /= 10;
     }
@@ -65,15 +63,15 @@ BigInt FFT_cpu::multiply(const BigInt &lhs, const BigInt &rhs) {
     return result;
 }
 
-void FFT_cpu::set_root(u32 n) {
+void NTT_cpu::set_root(u32 n) {
     assert((n & (n - 1)) == 0);
 
     const int h = std::__lg(n);
     roots.resize(h - 1);
     iroots.resize(h - 1);
 
-    roots[h - 2] = std::polar<fp>(1.0, 2 * std::numbers::pi / n);
-    iroots[h - 2] = identity / roots[h - 2];
+    roots[h - 2] = field(field::get_primitive_root_prime()).pow((field::get_mod() - 1) / n);
+    iroots[h - 2] = one_ / roots[h - 2];
 
     for (int i = h - 3; i >= 0; i--) {
         roots[i] = roots[i + 1] * roots[i + 1];
@@ -82,7 +80,7 @@ void FFT_cpu::set_root(u32 n) {
 
     carry.resize(h - 1);
     icarry.resize(h - 1);
-    field low = identity, ilow = identity;
+    field low = one_, ilow = one_;
     for (int i = 0; i < h - 1; i++) {
         carry[i] = roots[i] * ilow;
         icarry[i] = iroots[i] * low;
@@ -91,12 +89,12 @@ void FFT_cpu::set_root(u32 n) {
     }
 }
 
-void FFT_cpu::fft(u32 n, field *a) {
+void NTT_cpu::dft(u32 n, field *a) {
     set_root(n);
 
     for (u32 len = n; len >= 2; len >>= 1) {
         u32 half = len >> 1;
-        field root = identity;
+        field root = one_;
         for (u32 i = 0, m = 0; i < n; i += len, m++) {
             for (u32 j = 0; j < half; j++) {
                 field x = a[i + j];
@@ -109,12 +107,12 @@ void FFT_cpu::fft(u32 n, field *a) {
     }
 }
 
-void FFT_cpu::ift(u32 n, field *a) {
+void NTT_cpu::idft(u32 n, field *a) {
     set_root(n);
 
     for (u32 len = 2; len <= n; len <<= 1) {
         u32 half = len >> 1;
-        field iroot = identity;
+        field iroot = one_;
         for (u32 i = 0, m = 0; i < n; i += len, m++) {
             for (u32 j = 0; j < half; j++) {
                 field x = a[i + j];
@@ -131,8 +129,7 @@ void FFT_cpu::ift(u32 n, field *a) {
     }
 }
 
-// This object is automatically created when program loads
 static bool _ = [](){
-    register_impl("fft-cpu", [](){ return new FFT_cpu(); });
+    register_impl("ntt-cpu", [](){ return new NTT_cpu(); });
     return true;
 }();
