@@ -17,6 +17,8 @@
 #include <string_view>
 #include <ranges>
 #include <unordered_map>
+#include <complex>
+#include <numbers>
 
 // CUDA headers
 #include <cuda_runtime.h>

@@ -68,7 +68,7 @@ private:
 public:
     std::string name() const override { return "gpu-schoolbook-opt"; }
 
-    BigInt multiply(const BigInt &lhs, const BigInt &rhs) const override {
+    BigInt multiply(const BigInt &lhs, const BigInt &rhs) override {
         u32 len1 = lhs.size();
         u32 len2 = rhs.size();
         u32 result_len = len1 + len2;

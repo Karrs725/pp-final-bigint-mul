@@ -34,7 +34,7 @@ public:
         infile.close();
     }
 
-    bool run_bench(const BigMulImpl *impl) {
+    bool run_bench(BigMulImpl *impl) {
         auto start = std::chrono::steady_clock::now();
 
         BigInt result = impl->multiply(num1, num2);
