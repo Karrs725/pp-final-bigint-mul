@@ -7,10 +7,32 @@ class Benchmark {
 private:
     const static std::string ref_impl_name;
     BigInt num1, num2, ans;
+    bool show = false;
 
 public:
     Benchmark() = default;
-    void setup(u32 size) {
+    Benchmark(const cli::CLI cli) {
+        setup(cli);
+    }
+
+    void setup(const cli::CLI cli) {
+        if (cli.has_option("file")) {
+            load(cli.get_option("file"));
+        } else {
+            u32 size = 1000; // default size
+            if (cli.has_option("size")) {
+                size = static_cast<u32>(std::stoul(cli.get_option("size")));
+            }
+            random(size);
+        }
+
+        if (cli.has_option("show")) {
+            show = true;
+        }
+
+    }
+
+    void random(u32 size) {
         num1 = random_bigint(size);
         num2 = random_bigint(size);
         auto ref_impl = get_impl(ref_impl_name);
@@ -20,7 +42,7 @@ public:
         ans = ref_impl->multiply(num1, num2);
     }
 
-    void setup(const std::string &filename) {
+    void load(const std::string &filename) {
         std::ifstream infile(filename);
         if (!infile.is_open()) {
             throw std::runtime_error("Could not open benchmark: " + filename);
@@ -31,15 +53,16 @@ public:
             std::getline(infile, line);
             *ptr = BigInt(line);
         }
+
         infile.close();
     }
 
     bool run_bench(BigMulImpl *impl) {
+
         auto start = std::chrono::steady_clock::now();
-
         BigInt result = impl->multiply(num1, num2);
-
         auto end = std::chrono::steady_clock::now();
+
         auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
         bool correct = (result == ans);
@@ -49,6 +72,11 @@ public:
         std::cout << "Input size     : " << num1.size() << " x " << num2.size() << "\n";
         std::cout << "Time taken     : " << time_ms << " ms\n";
         std::cout << "Result correct : " << (correct ? "YES" : "NO") << "\n";
+        if (show) {
+        std::cout << "Num1           : " << num1 << "\n";
+        std::cout << "Num2           : " << num2 << "\n";
+        std::cout << "Result         : " << result << "\n";
+        }
         std::cout << "-------------------------------------------\n";
         return correct;
     }
@@ -83,16 +111,7 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    Benchmark bench;
-    if (cli.has_option("file")) {
-        bench.setup(cli.get_option("file"));
-    } else {
-        u32 size = 1000; // default size
-        if (cli.has_option("size")) {
-            size = static_cast<u32>(std::stoul(cli.get_option("size")));
-        }
-        bench.setup(size);
-    }
+    Benchmark bench(cli);
 
     // If no impl is specified, run all
     std::vector<BigMulImpl*> impls_to_run;
@@ -102,7 +121,6 @@ int main(int argc, char** argv) {
         BigMulImpl* impl = get_impl(impl_name);
         impl->config(cli);
         impls_to_run.push_back(impl);
-        bench.run_bench(impl);
     } else {
         for (const auto& name : list_impls()) {
             BigMulImpl* impl = get_impl(name);

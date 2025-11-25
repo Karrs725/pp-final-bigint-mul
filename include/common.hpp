@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <complex>
 #include <numbers>
+#include <bit>
 
 // CUDA headers
 #include <cuda_runtime.h>

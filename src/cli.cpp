@@ -33,6 +33,11 @@ const std::vector<option> options = {
         .argument = "<path>",
         .description = "Read input from file",
         .requires_argument = true
+    },
+    {   .name = "show",
+        .argument = "",
+        .description = "Display input and output numbers",
+        .requires_argument = false
     }
 };
 
