@@ -18,7 +18,7 @@ include(CheckLanguage)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
-    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD 20)
     set(CMAKE_CUDA_ARCHITECTURES 75 80 86)  # Set appropriate GPU architectures
     file(GLOB CUDA_SOURCES src/gpu/*.cu)
     add_definitions(-DUSE_CUDA)    

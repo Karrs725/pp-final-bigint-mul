@@ -3,9 +3,9 @@
 #include "registry.hpp"
 #include "modint.hpp"
 
-class NTT_cpu : public BigMulImpl {
+class NTT_gpu : public BigMulImpl {
 public:
-    std::string name() const override { return "ntt-cpu"; }
+    std::string name() const override { return "ntt-gpu"; }
 
     BigInt multiply(const BigInt &lhs, const BigInt &rhs) override;
 
@@ -22,7 +22,7 @@ private:
     void idft(u32 n, field *a);
 };
 
-BigInt NTT_cpu::multiply(const BigInt &lhs, const BigInt &rhs) {
+BigInt NTT_gpu::multiply(const BigInt &lhs, const BigInt &rhs) {
     const u32 lhs_len= lhs.size();
     const u32 rhs_len = rhs.size();
 
@@ -63,7 +63,7 @@ BigInt NTT_cpu::multiply(const BigInt &lhs, const BigInt &rhs) {
     return result;
 }
 
-void NTT_cpu::set_root(u32 n) {
+void NTT_gpu::set_root(u32 n) {
     assert((n & (n - 1)) == 0);
 
     const int h = std::__lg(n);
@@ -89,25 +89,53 @@ void NTT_cpu::set_root(u32 n) {
     }
 }
 
-void NTT_cpu::dft(u32 n, field *a) {
+namespace ntt_gpu_internal {
+
+using field = MontgomeryModInt<998244353>;
+__global__ void ntt_kernel(const field &root, field *p) {
+    u32 i = threadIdx.x;
+    u32 j = i + blockDim.x;
+    field x = p[i];
+    field y = p[j] * root;
+    p[i] = x + y;
+    p[j] = x - y;
+}
+
+} // namespace ntt_gpu_internal
+
+void NTT_gpu::dft(u32 n, field *a) {
     set_root(n);
+
+    field *d_a;
+    checkCuda(cudaMalloc(&d_a, n * sizeof(field)), "malloc d_a");
+    checkCuda(cudaMemcpy(d_a, a, n * sizeof(field), cudaMemcpyHostToDevice), "copy to d_a");
 
     for (u32 len = n; len >= 2; len >>= 1) {
         u32 half = len >> 1;
         field root = one_;
         for (u32 i = 0, m = 0; i < n; i += len, m++) {
-            for (u32 j = 0; j < half; j++) {
-                field x = a[i + j];
-                field y = a[i + j + half] * root;
-                a[i + j] = x + y;
-                a[i + j + half] = x - y;
-            }
+
+            field *p = d_a + i;
+            ntt_gpu_internal::ntt_kernel<<<1, half>>>(root, p);
+
+            // for (u32 j = 0; j < half; j++) {
+            //     field x = p[j];
+            //     field y = p[j + half] * root;
+            //     a[i + j] = x + y;
+            //     a[i + j + half] = x - y;
+            // }
             root *= carry[__builtin_ctz(~m)];
         }
+
+        cudaDeviceSynchronize();
     }
+
+    checkCuda(cudaMemcpy(a, d_a, n * sizeof(field), cudaMemcpyDeviceToHost), "copy from d_a");
+    cudaFree(d_a);
+
 }
 
-void NTT_cpu::idft(u32 n, field *a) {
+void NTT_gpu::idft(u32 n, field *a) {
     set_root(n);
 
     for (u32 len = 2; len <= n; len <<= 1) {
@@ -130,6 +158,6 @@ void NTT_cpu::idft(u32 n, field *a) {
 }
 
 static bool _ = [](){
-    register_impl("ntt-cpu", [](){ return new NTT_cpu(); });
+    register_impl("ntt-gpu", [](){ return new NTT_gpu(); });
     return true;
 }();

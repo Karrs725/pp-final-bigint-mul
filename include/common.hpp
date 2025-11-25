@@ -30,3 +30,12 @@ using i32 = __int32_t;
 using u32 = __uint32_t;
 using i64 = __int64_t;
 using u64 = __uint64_t;
+
+// CUDA error checking
+inline void checkCuda(cudaError_t result, const char *msg) {
+    if (result != cudaSuccess)
+    {
+        std::cerr << "CUDA Error: " << msg << " - "
+                  << cudaGetErrorString(result) << std::endl;
+    }
+}

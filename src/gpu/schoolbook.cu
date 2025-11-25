@@ -64,12 +64,7 @@ __global__ void apply_carries_kernel(i32* result, i32* carries, u32 len) {
 class SchoolbookMul_GPU : public BigMulImpl {
 private:
     // Check for CUDA errors
-    void checkCuda(cudaError_t result, const char* msg) const {
-        if (result != cudaSuccess) {
-            std::cerr << "CUDA Error: " << msg << " - " 
-                      << cudaGetErrorString(result) << std::endl;
-        }
-    }
+
 
 public:
     std::string name() const override { return "schoolbook-gpu"; }
