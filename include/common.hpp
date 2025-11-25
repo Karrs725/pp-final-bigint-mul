@@ -21,6 +21,7 @@
 #include <numbers>
 #include <bit>
 #include <type_traits>
+#include <omp.h>
 
 // CUDA headers
 #include <cuda_runtime.h>

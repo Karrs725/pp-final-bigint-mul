@@ -11,7 +11,10 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Compiler flags
-add_compile_options(-O3 -march=native -Wall -Wextra)
+add_compile_options(-O3 -march=native -Wall -Wextra -g)
+
+# Find OpenMP and link it to targets instead of relying on compile-only flags.
+find_package(OpenMP)
 
 # Optional: CUDA support
 include(CheckLanguage)
@@ -41,3 +44,10 @@ add_executable(benchmark
 
 target_include_directories(benchmark PRIVATE include)
 set_target_properties(benchmark PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+if(OpenMP_CXX_FOUND)
+    message(STATUS "OpenMP found: linking OpenMP to benchmark")
+    target_link_libraries(benchmark PRIVATE OpenMP::OpenMP_CXX)
+else()
+    message(STATUS "OpenMP not found: building without OpenMP support")
+endif()
