@@ -2,14 +2,14 @@
 #include "common.hpp"
 #include "registry.hpp"
 
-class SchoolbookThreadMul : public BigMulImpl {
+class LongThreadMul : public BigMulImpl {
 private:
     // configured via CLI; if not set, we'll fall back to hardware_concurrency or env
     u32 num_threads_ = std::thread::hardware_concurrency() ?
                         static_cast<u32>(std::thread::hardware_concurrency()) : 4;
 
 public:
-    std::string name() const override { return "cpu-schoolbook-thread"; }
+    std::string name() const override { return "long-cpu-omp"; }
 
     void config(const cli::CLI& cli) override {
         if (cli.has_option("threads")) {
@@ -80,6 +80,6 @@ public:
 
 // This object is automatically created when program loads
 static bool _ = [](){
-    register_impl("schoolbook-cpu-thread", [](){ return new SchoolbookThreadMul(); });
+    register_impl("long-cpu-omp", [](){ return new LongThreadMul(); });
     return true;
 }();

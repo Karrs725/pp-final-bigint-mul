@@ -2,9 +2,9 @@
 #include "common.hpp"
 #include "registry.hpp"
 
-class SchoolbookMul : public BigMulImpl {
+class LongMul : public BigMulImpl {
 public:
-    std::string name() const override { return "schoolbook-cpu"; }
+    std::string name() const override { return "long-cpu"; }
 
     BigInt multiply(const BigInt &lhs, const BigInt &rhs) override {
         u32 len1 = lhs.size();
@@ -38,6 +38,6 @@ public:
 
 // This object is automatically created when program loads
 static bool _ = [](){
-    register_impl("schoolbook-cpu", [](){ return new SchoolbookMul(); });
+    register_impl("long-cpu", [](){ return new LongMul(); });
     return true;
 }();

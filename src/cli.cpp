@@ -89,7 +89,7 @@ void show_usage(const char* program_name) {
     std::cout << "EXAMPLES:\n";
     std::cout << "  " << program_name << " --list\n";
     std::cout << "  " << program_name << " --size 500\n";
-    std::cout << "  " << program_name << " --impl cpu-schoolbook --size 1000\n";
+    std::cout << "  " << program_name << " --impl cpu-long --size 1000\n";
     std::cout << "  " << program_name << " --file benchmarks/random/nd3_1.in\n";
     std::cout << "\n";
 }

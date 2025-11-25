@@ -12,7 +12,7 @@ cmake -B build && cmake --build build -j
 
 ## Features
 
-- **CPU**: Schoolbook algorithm
+- **CPU**: long algorithm
 - **GPU**: CUDA-accelerated implementations (basic + optimized)
 - **Benchmarking**: Compare implementations with custom input sizes
 - **Modular**: Registry-based plugin architecture
@@ -32,7 +32,7 @@ Options:
 
 Examples:
   ./build/bin/benchmark --size 5000
-  ./build/bin/benchmark --impl gpu-schoolbook-opt --size 2000
+  ./build/bin/benchmark --impl gpu-long-opt --size 2000
 ```
 
 ## Requirements
