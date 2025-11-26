@@ -161,3 +161,74 @@ private:
     static_assert((mod & (3U << 30)) == 0, "mod >= (1 << 30)\n");
     static_assert(mod != 1, "mod == 1\n");
 };
+
+template <u32 mod>
+class ModInt {
+public:
+    using mi = ModInt;
+
+    u32 v;
+
+    constexpr ModInt() : v(0) {}
+    template <typename T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+    constexpr ModInt(T v_in) {
+        i64 x = i64(v_in % i64(mod));
+        if (x < 0) x += mod;
+        v = u32(x);
+    }
+
+    static constexpr u32 get_mod() { return mod; }
+    constexpr u32 get() const { return v; }
+
+
+    static constexpr u32 get_primitive_root_prime() {
+        static_assert(mod == 998244353, "Primitive root is only implemented for mod = 998244353");
+        return 3;
+    }
+
+    constexpr mi operator-() const { return mi(0) - *this; }
+    constexpr mi inv() const { return pow(mod - 2); }
+
+    constexpr mi &operator+=(const mi &rhs) {
+        v += rhs.v;
+        if (v >= mod) v -= mod;
+        return *this;
+    }
+    constexpr mi &operator-=(const mi &rhs) {
+        v -= rhs.v;
+        if (v >= mod) v += mod; // Handle underflow with unsigned types
+        return *this;
+    }
+    constexpr mi &operator*=(const mi &rhs) {
+        v = u64(v) * rhs.v % mod;
+        return *this;
+    }
+    constexpr mi &operator/=(const mi &rhs) { return *this *= rhs.inv(); }
+
+    friend constexpr mi operator+(const mi &lhs, const mi &rhs) { return mi(lhs) += rhs; }
+    friend constexpr mi operator-(const mi &lhs, const mi &rhs) { return mi(lhs) -= rhs; }
+    friend constexpr mi operator*(const mi &lhs, const mi &rhs) { return mi(lhs) *= rhs; }
+    friend constexpr mi operator/(const mi &lhs, const mi &rhs) { return mi(lhs) /= rhs; }
+
+    friend constexpr bool operator==(const mi &lhs, const mi &rhs) { return lhs.v == rhs.v; }
+    friend constexpr bool operator!=(const mi &lhs, const mi &rhs) { return lhs.v != rhs.v; }
+
+    constexpr mi pow(u64 y) const {
+        mi res(1), x(*this);
+        for (; y > 0; y >>= 1) {
+            if (y & 1) res *= x;
+            x *= x;
+        }
+        return res;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const mi &rhs) {
+        return os << rhs.get();
+    }
+    friend std::istream &operator>>(std::istream &is, mi &rhs) {
+        i64 x;
+        is >> x;
+        rhs = mi(x);
+        return is;
+    }
+};
