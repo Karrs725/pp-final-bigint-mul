@@ -18,12 +18,11 @@ private:
     static constexpr field zero_ = field(0);
 
     std::vector<field> roots, iroots, carry, icarry;
+    std::vector<field> root_, iroot_;
 
     void set_root(u32 n);
     void dft(u32 n, field *a);
     void idft(u32 n, field *a);
-    void dft_thread(u32 half, u32 i, field *a, field root);
-    void idft_thread(u32 half, u32 i, field *a, field iroot);
 
     u32 num_threads_ = std::thread::hardware_concurrency() ?
                         static_cast<u32>(std::thread::hardware_concurrency()) : 4;
@@ -74,6 +73,10 @@ BigInt NTT_cpu_thread::multiply(const BigInt &lhs, const BigInt &rhs) {
 void NTT_cpu_thread::set_root(u32 n) {
     assert((n & (n - 1)) == 0);
 
+    if (root_.size() == n / 2) {
+        return;
+    }
+
     const int h = std::__lg(n);
     roots.resize(h - 1);
     iroots.resize(h - 1);
@@ -95,28 +98,57 @@ void NTT_cpu_thread::set_root(u32 n) {
         low *= roots[i];
         ilow *= iroots[i];
     }
+
+    root_.resize(n / 2);
+    iroot_.resize(n / 2);
+    field cur = one_, icur = one_;
+    for (u32 i = 0; i < n / 2; i++) {
+        root_[i] = cur;
+        iroot_[i] = icur;
+        cur *= carry[__builtin_ctz(~i)];
+        icur *= icarry[__builtin_ctz(~i)];
+    }
 }
 
 void NTT_cpu_thread::dft(u32 n, field *a) {
     set_root(n);
 
-    u32 num_threads = num_threads_;
-    std::vector<std::thread> threads(num_threads);
+    std::vector<std::thread> threads(num_threads_);
     std::cout << "Using " << threads.size() << " threads for NTT.\n";
 
     for (u32 len = n; len >= 2; len >>= 1) {
-        u32 half = len >> 1;
-        field root = one_;
-        for (u32 i = 0, m = 0; i < n; i += len, m++) {
-            u32 x = m % num_threads;
-            threads[x] = std::thread(&NTT_cpu_thread::dft_thread, this, half, i, a, root);
-            // threads[x].join();
-            root *= carry[__builtin_ctz(~m)];
-            if ((m + 1) % num_threads_ == 0 || i == n - len) {
-                for (u32 i = 0; i < num_threads; i++) {
-                    threads[i].join();
+        const u32 half = len >> 1;
+        const field root = one_;
+
+        auto work = [=](u32 l_m, u32 r_m) -> void {
+            field w = root_[l_m];
+            u32 l = l_m * len;
+            for (u32 m = l_m; m < r_m; m++, l += len) {
+                u32 r = l + len;
+                for (u32 k = 0; k < half; k++) {
+                    u32 i = l + k;
+                    u32 j = l + k + half;
+                    field x = a[i];
+                    field y = a[j] * w;
+                    a[i] = x + y;
+                    a[j] = x - y;
                 }
+                w *= carry[__builtin_ctz(~m)];
             }
+        };
+
+        const u32 num_block = n / len;
+        const u32 num_threads = std::min(num_block, num_threads_);
+        const u32 block_per_thread = (num_block + num_threads - 1) / num_threads;
+
+        for (u32 i = 0; i < num_threads; i++) {
+            const u32 l_m = i * block_per_thread;
+            const u32 r_m = std::min(num_block, (i + 1) * block_per_thread);
+            threads[i] = std::thread(work, l_m, r_m);
+        }
+
+        for (u32 i = 0; i < num_threads; i++) {
+            threads[i].join();
         }
     }
 }
@@ -124,37 +156,45 @@ void NTT_cpu_thread::dft(u32 n, field *a) {
 void NTT_cpu_thread::idft(u32 n, field *a) {
     set_root(n);
 
+    std::vector<std::thread> threads(num_threads_);
+
     for (u32 len = 2; len <= n; len <<= 1) {
-        u32 half = len >> 1;
-        field iroot = one_;
-        for (u32 i = 0, m = 0; i < n; i += len, m++) {
-            // std::thread t(&NTT_cpu_thread::idft_thread, this, half, i, a, iroot);
-            // t.detach();
-            NTT_cpu_thread::idft_thread(half, i, a, iroot);
-            iroot *= icarry[__builtin_ctz(~m)];
+        const u32 half = len >> 1;
+
+        auto work = [=](u32 l_m, u32 r_m) -> void {
+            field w = iroot_[l_m];
+            u32 l = l_m * len;
+            for (u32 m = l_m; m < r_m; m++, l += len) {
+                u32 r = l + len;
+                for (u32 k = 0; k < half; k++) {
+                    u32 i = l + k;
+                    u32 j = l + k + half;
+                    field x = a[i];
+                    field y = a[j];
+                    a[i] = x + y;
+                    a[j] = (x - y) * w;
+                }
+                w *= icarry[__builtin_ctz(~m)];
+            }
+        };
+
+        const u32 num_block = n / len;
+        const u32 num_threads = std::min(num_block, num_threads_);
+        const u32 block_per_thread = (num_block + num_threads - 1) / num_threads;
+
+        for (u32 i = 0; i < num_threads; i++) {
+            const u32 l_m = i * block_per_thread;
+            const u32 r_m = std::min(num_block, (i + 1) * block_per_thread);
+            threads[i] = std::thread(work, l_m, r_m);
+        }
+
+        for (u32 i = 0; i < num_threads; i++) {
+            threads[i].join();
         }
     }
 
     for (u32 i = 0; i < n; i++) {
         a[i] /= n;
-    }
-}
-
-void NTT_cpu_thread::dft_thread(u32 half, u32 i, field *a, field root) {
-    for (u32 j = 0; j < half; j++) {
-        field x = a[i + j];
-        field y = a[i + j + half] * root;
-        a[i + j] = x + y;
-        a[i + j + half] = x - y;
-    }
-}
-
-void NTT_cpu_thread::idft_thread(u32 half, u32 i, field *a, field iroot) {
-    for (u32 j = 0; j < half; j++) {
-        field x = a[i + j];
-        field y = a[i + j + half];
-        a[i + j] = x + y;
-        a[i + j + half] = (x - y) * iroot;
     }
 }
 
