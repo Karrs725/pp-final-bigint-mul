@@ -231,19 +231,19 @@ void NTT_cpu_thread::smallBlock(
             nttKernel<inverse>(x_ptr, y_ptr, root, half);
 
             root *= carry[__builtin_ctz(~b)];
-            // root = roots[b + 1];
         }
     };
 
-    const u32 block_per_thread = (block_num + num_threads_ - 1) / num_threads_;
+    const u32 thread_num = std::min(block_num, num_threads_);
+    const u32 block_per_thread = (block_num + thread_num - 1) / thread_num;
 
-    for (u32 i = 0; i < num_threads_; i++) {
+    for (u32 i = 0; i < thread_num; i++) {
         u32 start_block = i * block_per_thread;
         u32 end_block = std::min(block_num, (i + 1) * block_per_thread);
         threads[i] = std::thread(work, start_block, end_block);
     }
 
-    for (u32 i = 0; i < num_threads_; i++) {
+    for (u32 i = 0; i < thread_num; i++) {
         threads[i].join();
     }
 }
