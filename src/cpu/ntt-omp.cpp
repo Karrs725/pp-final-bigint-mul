@@ -2,6 +2,7 @@
 #include "common.hpp"
 #include "registry.hpp"
 #include "modint.hpp"
+#include <omp.h>
 
 class NTT_cpu_omp : public BigMulImpl {
 public:
@@ -9,50 +10,72 @@ public:
 
     BigInt multiply(const BigInt &lhs, const BigInt &rhs) override;
 
+    void config(const cli::CLI& cli) override;
+
 private:
     using field = MontgomeryModInt<998244353>;
 
     static constexpr field one_ = field(1);
     static constexpr field zero_ = field(0);
 
-    std::vector<field> roots, iroots, carry, icarry, root, iroot;
+    std::vector<field> root_bit_, iroot_bit_, carry_, icarry_;
+    std::vector<field> roots_, iroots_;
 
     void set_root(u32 n);
-    void dft(u32 n, field *a);
-    void idft(u32 n, field *a);
+    
+    template<bool inverse>
+    void transform(u32 n, field *a);
+
+    u32 num_threads_ = std::thread::hardware_concurrency() ?
+                        static_cast<u32>(std::thread::hardware_concurrency()) : 4;
 };
 
 BigInt NTT_cpu_omp::multiply(const BigInt &lhs, const BigInt &rhs) {
-    const u32 lhs_len= lhs.size();
+    const u32 lhs_len = lhs.size();
     const u32 rhs_len = rhs.size();
 
     if (lhs_len == 0 || rhs_len == 0) {
         return BigInt{};
     }
 
-    const u32 result_len = std::max<u32>(4, lhs_len + rhs_len);
+    omp_set_num_threads(num_threads_);
 
+    const u32 result_len = std::max<u32>(4, lhs_len + rhs_len);
     u32 ntt_len = std::bit_ceil(result_len);
+
+    set_root(ntt_len);
 
     std::vector<field> A(ntt_len, zero_);
     std::vector<field> B(ntt_len, zero_);
 
-    #pragma omp parallel for
+    // Parallel initialization
+    #pragma omp parallel for schedule(static)
     for (u32 i = 0; i < ntt_len; i++) {
         if (i < lhs_len) A[i] = field(lhs[i]);
         if (i < rhs_len) B[i] = field(rhs[i]);
     }
 
-    dft(ntt_len, A.data());
-    dft(ntt_len, B.data());
-    #pragma omp parallel for
+    transform<false>(ntt_len, A.data());
+    transform<false>(ntt_len, B.data());
+
+    // Parallel pointwise multiplication
+    #pragma omp parallel for schedule(static)
     for (u32 i = 0; i < ntt_len; i++) {
         A[i] *= B[i];
     }
-    idft(ntt_len, A.data());
 
+    transform<true>(ntt_len, A.data());
+
+    // Parallel division by n
+    field inv_n = field(ntt_len).inv();
+    #pragma omp parallel for schedule(static)
+    for (u32 i = 0; i < ntt_len; i++) {
+        A[i] *= inv_n;
+    }
+
+    // Sequential carry propagation (cannot be parallelized easily)
     BigInt result(result_len);
-    i32 carry = 0;
+    i64 carry = 0;
     for (u32 i = 0; i < result_len; i++) {
         carry += A[i].get();
         result[i] = carry % 10;
@@ -61,88 +84,101 @@ BigInt NTT_cpu_omp::multiply(const BigInt &lhs, const BigInt &rhs) {
     assert(carry == 0);
 
     result.trim();
-
     return result;
 }
 
 void NTT_cpu_omp::set_root(u32 n) {
-    assert((n & (n - 1)) == 0);
+    if (roots_.size() >= n / 2) {
+        return;
+    }
 
     const int h = std::__lg(n);
-    roots.resize(h - 1);
-    iroots.resize(h - 1);
+    root_bit_.resize(h - 1);
+    iroot_bit_.resize(h - 1);
 
-    roots[h - 2] = field(field::get_primitive_root_prime()).pow((field::get_mod() - 1) / n);
-    iroots[h - 2] = one_ / roots[h - 2];
-
+    root_bit_[h - 2] = field(field::get_primitive_root_prime()).pow((field::get_mod() - 1) / n);
+    iroot_bit_[h - 2] = one_ / root_bit_[h - 2];
     for (int i = h - 3; i >= 0; i--) {
-        roots[i] = roots[i + 1] * roots[i + 1];
-        iroots[i] = iroots[i + 1] * iroots[i + 1];
+        root_bit_[i] = root_bit_[i + 1] * root_bit_[i + 1];
+        iroot_bit_[i] = iroot_bit_[i + 1] * iroot_bit_[i + 1];
     }
 
-    carry.resize(h - 1);
-    icarry.resize(h - 1);
+    carry_.resize(h - 1);
+    icarry_.resize(h - 1);
     field low = one_, ilow = one_;
     for (int i = 0; i < h - 1; i++) {
-        carry[i] = roots[i] * ilow;
-        icarry[i] = iroots[i] * low;
-        low *= roots[i];
-        ilow *= iroots[i];
+        carry_[i] = root_bit_[i] * ilow;
+        icarry_[i] = iroot_bit_[i] * low;
+        low *= root_bit_[i];
+        ilow *= iroot_bit_[i];
     }
 
-    root.reserve(n / 2);
-    iroot.reserve(n / 2);
-    root.push_back(one_);
-    iroot.push_back(one_);
-    for (u32 i = 0; i < n / 2 - 1; i++) {
-        root.push_back(root[i] * carry[__builtin_ctz(~i)]);
-        iroot.push_back(iroot[i] * icarry[__builtin_ctz(~i)]);
+    roots_.resize(n / 2);
+    iroots_.resize(n / 2);
+    field root = one_, iroot = one_;
+    for (u32 i = 0; i < n / 2; i++) {
+        roots_[i] = root;
+        iroots_[i] = iroot;
+        root *= carry_[__builtin_ctz(~i)];
+        iroot *= icarry_[__builtin_ctz(~i)];
     }
 }
 
-void NTT_cpu_omp::dft(u32 n, field *a) {
-    set_root(n);
+template<bool inverse>
+void NTT_cpu_omp::transform(u32 n, field *a) {
+    const std::vector<field> &roots = inverse ? iroots_ : roots_;
 
-    for (u32 len = n; len >= 2; len >>= 1) {
-        u32 half = len >> 1;
+    if constexpr (inverse) {
+        // IDFT: len goes 2 -> n
+        for (u32 len = 2; len <= n; len <<= 1) {
+            const u32 half = len >> 1;
+            const u32 num_blocks = n / len;
 
-        #pragma omp parallel for
-        for (u32 k = 0; k < n / len; k++) {
-            u32 i = k * len;
-            field r = root[k];
-            
-            for (u32 j = 0; j < half; j++) {
-                field x = a[i + j];
-                field y = a[i + j + half] * r;
-                a[i + j] = x + y;
-                a[i + j + half] = x - y;
+            #pragma omp parallel for schedule(static)
+            for (u32 block = 0; block < num_blocks; block++) {
+                field root = roots[block];
+                field *x_ptr = a + block * len;
+                field *y_ptr = x_ptr + half;
+
+                for (u32 j = 0; j < half; j++) {
+                    field x = x_ptr[j];
+                    field y = y_ptr[j];
+                    x_ptr[j] = x + y;
+                    y_ptr[j] = (x - y) * root;
+                }
+            }
+        }
+    } else {
+        // DFT: len goes n -> 2
+        for (u32 len = n; len >= 2; len >>= 1) {
+            const u32 half = len >> 1;
+            const u32 num_blocks = n / len;
+
+            #pragma omp parallel for schedule(static)
+            for (u32 block = 0; block < num_blocks; block++) {
+                field root = roots[block];
+                field *x_ptr = a + block * len;
+                field *y_ptr = x_ptr + half;
+
+                for (u32 j = 0; j < half; j++) {
+                    field x = x_ptr[j];
+                    field y = y_ptr[j] * root;
+                    x_ptr[j] = x + y;
+                    y_ptr[j] = x - y;
+                }
             }
         }
     }
 }
 
-void NTT_cpu_omp::idft(u32 n, field *a) {
-    set_root(n);
-
-    for (u32 len = 2; len <= n; len <<= 1) {
-        u32 half = len >> 1;
-
-        #pragma omp parallel for
-        for (u32 k = 0; k < n / len; k++) {
-            u32 i = k * len;
-            field ir = iroot[k];
-
-            for (u32 j = 0; j < half; j++) {
-                field x = a[i + j];
-                field y = a[i + j + half];
-                a[i + j] = x + y;
-                a[i + j + half] = (x - y) * ir;
-            }
+void NTT_cpu_omp::config(const cli::CLI& cli) {
+    if (cli.has_option("threads")) {
+        try {
+            auto parsed = std::stoul(cli.get_option("threads"));
+            if (parsed > 0) num_threads_ = static_cast<u32>(parsed);
+        } catch (...) {
+            // ignore invalid value
         }
-    }
-
-    for (u32 i = 0; i < n; i++) {
-        a[i] /= n;
     }
 }
 
