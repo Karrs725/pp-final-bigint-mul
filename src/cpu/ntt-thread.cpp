@@ -32,6 +32,11 @@ private:
     template<bool inverse>
     void smallBlock( u32 n, u32 block_size, field *a);
 
+    template<bool inverse>
+    static void nttKernel(field *x_ptr, field *y_ptr, const field root, const u32 iter);
+
+    static void nttKernelSimple(field *x_ptr, field *y_ptr, const u32 iter);
+
     u32 num_threads_ = std::thread::hardware_concurrency() ?
                         static_cast<u32>(std::thread::hardware_concurrency()) : 4;
 
@@ -121,6 +126,40 @@ void NTT_cpu_thread::set_root(u32 n) {
 }
 
 template<bool inverse>
+void NTT_cpu_thread::nttKernel(field *x_ptr, field *y_ptr, const field root, const u32 iter) {
+    if constexpr (inverse) {
+        for (u32 i = 0; i < iter; i++) {
+            field x = *x_ptr;
+            field y = *y_ptr;
+            *x_ptr = x + y;
+            *y_ptr = (x - y) * root;
+            x_ptr++;
+            y_ptr++;
+        }
+    } else {
+        for (u32 i = 0; i < iter; i++) {
+            field x = *x_ptr;
+            field y = *y_ptr * root;
+            *x_ptr = x + y;
+            *y_ptr = (x - y);
+            x_ptr++;
+            y_ptr++;
+        }
+    }
+}
+
+void NTT_cpu_thread::nttKernelSimple(field *x_ptr, field *y_ptr, const u32 iter) {
+    for (u32 i = 0; i < iter; i++) {
+        field x = *x_ptr;
+        field y = *y_ptr;
+        *x_ptr = x + y;
+        *y_ptr = (x - y);
+        x_ptr++;
+        y_ptr++;
+    }
+}
+
+template<bool inverse>
 void NTT_cpu_thread::bigBlock(
     u32 n, 
     u32 block_size, 
@@ -130,60 +169,41 @@ void NTT_cpu_thread::bigBlock(
     const u32 block_num = n / block_size;
     const std::vector<field> &carry = inverse ? icarry_ : carry_;
 
-    auto assign_work = [&](u32 start, u32 end, auto &&work) -> void {
-        u32 size_per_thread = (end - start + num_threads_ - 1) / num_threads_;
+    const u32 size_per_thread = (half + num_threads_ - 1) / num_threads_;
+
+    // first block
+    for (u32 i = 0; i < num_threads_; i++) {
+        u32 start = i * size_per_thread;
+        u32 end = std::min(start + size_per_thread, half);
+
+        field *x_ptr = a + start;
+        field *y_ptr = a + start + half;
+
+        threads[i] = std::thread(nttKernelSimple, x_ptr, y_ptr, end - start);
+    }
+    for (u32 i = 0; i < num_threads_; i++) {
+        threads[i].join();
+    }
+
+    // remain blocks
+    field root = carry[__builtin_ctz(~0)];
+    for (u32 block_id = 1; block_id < block_num; block_id++) {
+        u32 start = block_id * block_size;
+        u32 end = start + half;
 
         for (u32 i = 0; i < num_threads_; i++) {
             u32 l = start + i * size_per_thread;
             u32 r = std::min(end, l + size_per_thread);
-            threads[i] = std::thread(work, l, r);
+
+            field *x_ptr = a + l;
+            field *y_ptr = a + l + half;
+
+            threads[i] = std::thread(nttKernel<inverse>, x_ptr, y_ptr, root, r - l);
         }
 
         for (u32 i = 0; i < num_threads_; i++) {
             threads[i].join();
         }
-    };
-
-    u32 block_id = 0;
-    field root = one_;
-    assign_work(0, half, [&](u32 l, u32 r) {
-            for (u32 i = l; i < r; i++) {
-                if constexpr (inverse) {
-                    field x = a[i];
-                    field y = a[i + half];
-                    a[i] = x + y;
-                    a[i + half] = (x - y);
-                } else {
-                    field x = a[i];
-                    field y = a[i + half];
-                    a[i] = x + y;
-                    a[i + half] = x - y;
-                }
-            } 
-        });
-
-    root *= carry[__builtin_ctz(~block_id)];
-    block_id++;
-
-    for (; block_id < block_num; block_id++) {
-        u32 start = block_id * block_size;
-        u32 end = start + half;
-
-        assign_work(start, end, [&](u32 l, u32 r) {
-                for (u32 i = l; i < r; i++) {
-                    if constexpr (inverse) {
-                        field x = a[i];
-                        field y = a[i + half];
-                        a[i] = x + y;
-                        a[i + half] = (x - y) * root;
-                    } else {
-                        field x = a[i];
-                        field y = a[i + half] * root;
-                        a[i] = x + y;
-                        a[i + half] = x - y;
-                    }
-                } 
-            });
 
         root *= carry[__builtin_ctz(~block_id)];
     }
@@ -205,23 +225,13 @@ void NTT_cpu_thread::smallBlock(
         field root = roots[start_block];
 
         for (u32 b = start_block; b < end_block; b++) {
-            field *ptr = a + b * block_size;
+            field *x_ptr = a + b * block_size;
+            field *y_ptr = a + b * block_size + half;
 
-            for (u32 k = 0; k < half; k++) {
-                if constexpr (inverse) {
-                    field x = ptr[k];
-                    field y = ptr[k + half];
-                    ptr[k] = x + y;
-                    ptr[k + half] = (x - y) * root;
-                } else {
-                    field x = ptr[k];
-                    field y = ptr[k + half] * root;
-                    ptr[k] = x + y;
-                    ptr[k + half] = x - y;
-                }
-            }
+            nttKernel<inverse>(x_ptr, y_ptr, root, half);
 
             root *= carry[__builtin_ctz(~b)];
+            // root = roots[b + 1];
         }
     };
 
