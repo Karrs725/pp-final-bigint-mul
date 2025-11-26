@@ -110,7 +110,7 @@ void NTT_cpu_omp::dft(u32 n, field *a) {
         for (u32 k = 0; k < n / len; k++) {
             u32 i = k * len;
             field r = root[k];
-
+            
             for (u32 j = 0; j < half; j++) {
                 field x = a[i + j];
                 field y = a[i + j + half] * r;
@@ -141,7 +141,6 @@ void NTT_cpu_omp::idft(u32 n, field *a) {
         }
     }
 
-    #pragma omp parallel for
     for (u32 i = 0; i < n; i++) {
         a[i] /= n;
     }
