@@ -3,6 +3,7 @@ build/
 *.a
 *.o
 *.in
+*.out
 *.ans
 .vscode/
 CMakeCache.txt
