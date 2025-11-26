@@ -63,14 +63,14 @@ public:
         BigInt result = impl->multiply(num1, num2);
         auto end = std::chrono::steady_clock::now();
 
-        auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        auto time_ms = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
         bool correct = (result == ans);
 
         std::cout << "-------------------------------------------\n";
         std::cout << "Benchmarking   : " << impl->name() << "\n";
         std::cout << "Input size     : " << num1.size() << " x " << num2.size() << "\n";
-        std::cout << "Time taken     : " << time_ms << " ms\n";
+        std::cout << "Time taken     : " << time_ms << " ns\n";
         std::cout << "Result correct : " << (correct ? "YES" : "NO") << "\n";
         if (show) {
         std::cout << "Num1           : " << num1 << "\n";
