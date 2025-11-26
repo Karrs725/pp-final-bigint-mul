@@ -30,7 +30,7 @@ public:
         
         // Prefer configured thread count; fall back to environment or default.
         u32 num_threads = num_threads_;
-        std::cerr << "Using " << num_threads << " threads for multiplication.\n";
+        // std::cerr << "Using " << num_threads << " threads for multiplication.\n";
 
         std::vector<std::thread> threads(num_threads);
         std::vector<BigInt> partial_results(num_threads, BigInt(result_len));

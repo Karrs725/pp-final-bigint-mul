@@ -114,7 +114,7 @@ void NTT_cpu_thread_old::dft(u32 n, field *a) {
     set_root(n);
 
     std::vector<std::thread> threads(num_threads_);
-    std::cout << "Using " << threads.size() << " threads for NTT.\n";
+    // std::cout << "Using " << threads.size() << " threads for NTT.\n";
 
     for (u32 len = n; len >= 2; len >>= 1) {
         const u32 half = len >> 1;
