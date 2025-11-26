@@ -38,6 +38,11 @@ const std::vector<option> options = {
         .argument = "",
         .description = "Display input and output numbers",
         .requires_argument = false
+    },
+    {   .name = "iter",
+        .argument = "<n>",
+        .description = "Number of iterations for benchmarking",
+        .requires_argument = true
     }
 };
 

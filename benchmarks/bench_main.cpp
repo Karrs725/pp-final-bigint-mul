@@ -8,6 +8,7 @@ private:
     const static std::string ref_impl_name;
     BigInt num1, num2, ans;
     bool show = false;
+    u32 iterations = 1;
 
 public:
     Benchmark() = default;
@@ -28,6 +29,10 @@ public:
 
         if (cli.has_option("show")) {
             show = true;
+        }
+
+        if (cli.has_option("iter")) {
+            iterations = static_cast<u32>(std::stoul(cli.get_option("iter")));
         }
 
     }
@@ -59,18 +64,24 @@ public:
 
     bool run_bench(BigMulImpl *impl) {
 
-        auto start = std::chrono::steady_clock::now();
-        BigInt result = impl->multiply(num1, num2);
-        auto end = std::chrono::steady_clock::now();
+        u64 time_min = ~0ULL;
+        bool correct = true;
 
-        auto time_ms = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+        BigInt result;
 
-        bool correct = (result == ans);
+        for (u32 iter = 0; iter < iterations; iter++) {
+            auto start = std::chrono::steady_clock::now();
+            result = impl->multiply(num1, num2);
+            auto end = std::chrono::steady_clock::now();
+
+            correct = correct && (result == ans);
+            time_min = std::min<u64>(time_min, std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
+        }
 
         std::cout << "-------------------------------------------\n";
         std::cout << "Benchmarking   : " << impl->name() << "\n";
         std::cout << "Input size     : " << num1.size() << " x " << num2.size() << "\n";
-        std::cout << "Time taken     : " << time_ms << " us\n";
+        std::cout << "Time taken     : " << time_min << " us\n";
         std::cout << "Result correct : " << (correct ? "YES" : "NO") << "\n";
         if (show) {
         std::cout << "Num1           : " << num1 << "\n";
